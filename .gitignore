@@ -1,0 +1,8 @@
+# Executable files
+*.out
+
+# Objects files
+build/
+
+# Data files
+data/
