@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -O3 -Wall -Wextra -std=c++17
+CXXFLAGS = -O3 -march=native -ffast-math -Wall -Wextra -std=c++17
 TARGET = main.out
 BUILD_DIR = build
 SRCS = $(wildcard src/*.cpp)
