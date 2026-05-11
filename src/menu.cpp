@@ -25,12 +25,17 @@ int selectMode(void) {
 
 int selectAlgorithm(void) {
     int algorithmNumber = 0;
-    while (algorithmNumber < 1 || algorithmNumber > 4) {
+    while (algorithmNumber < 1 || algorithmNumber > 9) {
         cout << "Algorithms:\n";
         cout << "\t1. dgemmBlas\n";
         cout << "\t2. dgemmOpt1\n";
         cout << "\t3. dgemmOpt2\n";
         cout << "\t4. dgemmOpt3\n";
+        cout << "\t5. dgemmOpt4\n";
+        cout << "\t6. dgemmOpt5\n";
+        cout << "\t7. dgemmOpt6\n";
+        // cout << "\t8. dgemmOpt7\n";
+        // cout << "\t9. dgemmOpt8\n";
         cout << "Select Algorithm (enter number): ";
         cin >> algorithmNumber;
         

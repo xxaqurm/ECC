@@ -1,3 +1,6 @@
+# VSC environment settings
+.vscode/
+
 # Executable files
 *.out
 

@@ -6,8 +6,13 @@
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
-#include <immintrin.h>
 #include <cmath>
+
+#include <immintrin.h>
+#include <pthread.h>
+#include <omp.h>
+#include <tbb/tbb.h>
+#include <mpi.h>
 
 using namespace std;
 
@@ -127,6 +132,7 @@ Matrix dgemmOpt2(const Matrix &m1, const Matrix &m2, int blockSize) {
 }
 
 LinearMatrix dgemmOpt3(const LinearMatrix &m1, const LinearMatrix &m2, int n, int blockSize) {
+    // Оптимизация за счет векторизации кода
     LinearMatrix result(n * n, 0.0);
 
     LinearMatrix m2_T(n * n);
@@ -140,9 +146,9 @@ LinearMatrix dgemmOpt3(const LinearMatrix &m1, const LinearMatrix &m2, int n, in
         for (int bj = 0; bj < n; bj += blockSize) {
             for (int bk = 0; bk < n; bk += blockSize) {
 
-                int i_end = std::min(bi + blockSize, n);
-                int j_end = std::min(bj + blockSize, n);
-                int k_end = std::min(bk + blockSize, n);
+                int i_end = min(bi + blockSize, n);
+                int j_end = min(bj + blockSize, n);
+                int k_end = min(bk + blockSize, n);
 
                 for (int i = bi; i < i_end; i++) {
 
@@ -172,9 +178,302 @@ LinearMatrix dgemmOpt3(const LinearMatrix &m1, const LinearMatrix &m2, int n, in
             }
         }
     }
+    return result;
+}
+
+struct ThreadData {
+    const LinearMatrix* m1;
+    const LinearMatrix* m2_T;
+    LinearMatrix* result;
+
+    int n;
+    int blockSize;
+
+    int rowStart;
+    int rowEnd;
+};
+
+void* worker(void* arg) {
+    ThreadData* data = (ThreadData*)arg;
+
+    const LinearMatrix& m1 = *data->m1;
+    const LinearMatrix& m2_T = *data->m2_T;
+    LinearMatrix& result = *data->result;
+
+    int n = data->n;
+    int blockSize = data->blockSize;
+
+    for (int bi = data->rowStart; bi < data->rowEnd; bi += blockSize) {
+        for (int bj = 0; bj < n; bj += blockSize) {
+            for (int bk = 0; bk < n; bk += blockSize) {
+
+                int i_end = min(bi + blockSize, data->rowEnd);
+                int j_end = min(bj + blockSize, n);
+                int k_end = min(bk + blockSize, n);
+
+                for (int i = bi; i < i_end; i++) {
+
+                    int j = bj;
+
+                    for (; j + 3 < j_end; j += 4) {
+
+                        __m256d c =
+                            _mm256_loadu_pd(&result[i * n + j]);
+
+                        for (int k = bk; k < k_end; k++) {
+
+                            __m256d a =
+                                _mm256_set1_pd(m1[i * n + k]);
+
+                            __m256d b =
+                                _mm256_loadu_pd(&m2_T[j * n + k]);
+
+                            c = _mm256_fmadd_pd(a, b, c);
+                        }
+
+                        _mm256_storeu_pd(
+                            &result[i * n + j], c);
+                    }
+
+                    for (; j < j_end; j++) {
+                        for (int k = bk; k < k_end; k++) {
+                            result[i * n + j] +=
+                                m1[i * n + k] *
+                                m2_T[j * n + k];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+LinearMatrix dgemmOpt4(const LinearMatrix& m1, const LinearMatrix& m2, int n, int blockSize, int numThreads) {
+    // Оптимизация за счет распараллеливания вычислений при помощи POSIX Threads
+    LinearMatrix result(n * n, 0.0);
+
+    LinearMatrix m2_T(n * n);
+
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            m2_T[j * n + i] = m2[i * n + j];
+        }
+    }
+
+    vector<pthread_t> threads(numThreads);
+    vector<ThreadData> threadData(numThreads);
+
+    int rowsPerThread = n / numThreads;
+
+    for (int t = 0; t < numThreads; t++) {
+
+        int start = t * rowsPerThread;
+
+        int end = (t == numThreads - 1)
+            ? n
+            : start + rowsPerThread;
+
+        threadData[t] = {
+            &m1,
+            &m2_T,
+            &result,
+            n,
+            blockSize,
+            start,
+            end
+        };
+
+        pthread_create(
+            &threads[t],
+            nullptr,
+            worker,
+            &threadData[t]
+        );
+    }
+
+    for (int t = 0; t < numThreads; t++) {
+        pthread_join(threads[t], nullptr);
+    }
 
     return result;
 }
+
+LinearMatrix dgemmOpt5(const LinearMatrix &m1,const LinearMatrix &m2,int n,int blockSize) {
+    // Оптимизация за счет распараллеливания вычислений при помощи OpenMP
+    LinearMatrix result(n * n, 0.0);
+
+    LinearMatrix m2_T(n * n);
+
+    #pragma omp parallel for collapse(2)
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            m2_T[j * n + i] = m2[i * n + j];
+        }
+    }
+
+    #pragma omp parallel for schedule(static)
+    for (int bi = 0; bi < n; bi += blockSize) {
+        for (int bj = 0; bj < n; bj += blockSize) {
+            for (int bk = 0; bk < n; bk += blockSize) {
+                int i_end = min(bi + blockSize, n);
+                int j_end = min(bj + blockSize, n);
+                int k_end = min(bk + blockSize, n);
+
+                for (int i = bi; i < i_end; i++) {
+                    int j = bj;
+                    for (; j + 3 < j_end; j += 4) {
+
+                        __m256d c =
+                            _mm256_loadu_pd(&result[i * n + j]);
+
+                        for (int k = bk; k < k_end; k++) {
+
+                            __m256d a =
+                                _mm256_set1_pd(m1[i * n + k]);
+
+                            __m256d b =
+                                _mm256_loadu_pd(
+                                    &m2_T[j * n + k]);
+
+                            c = _mm256_fmadd_pd(a, b, c);
+                        }
+
+                        _mm256_storeu_pd(
+                            &result[i * n + j], c);
+                    }
+
+                    for (; j < j_end; j++) {
+                        for (int k = bk; k < k_end; k++) {
+                            result[i * n + j] +=
+                                m1[i * n + k] *
+                                m2[k * n + j];
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return result;
+}
+
+LinearMatrix dgemmOpt6(const LinearMatrix &m1, const LinearMatrix &m2, int n, int blockSize) {
+    // Оптимизация за счет распараллеливания вычислений при помощи Intel TBB
+    LinearMatrix result(n * n, 0.0);
+    LinearMatrix m2_T(n * n);
+
+    tbb::parallel_for(
+        tbb::blocked_range2d<int>(
+            0, n, 64,
+            0, n, 64
+        ),
+
+        [&](const tbb::blocked_range2d<int>& r) {
+
+            for (int i = r.rows().begin();
+                 i < r.rows().end();
+                 ++i) {
+
+                for (int j = r.cols().begin();
+                     j < r.cols().end();
+                     ++j) {
+
+                    m2_T[j * n + i] =
+                        m2[i * n + j];
+                }
+            }
+        }
+    );
+
+    tbb::parallel_for(
+
+        tbb::blocked_range<int>(0, n, 256),
+
+        [&](const tbb::blocked_range<int>& r) {
+
+            for (int bi = r.begin();
+                 bi < r.end();
+                 bi += blockSize) {
+
+                for (int bj = 0;
+                     bj < n;
+                     bj += blockSize) {
+
+                    for (int bk = 0;
+                         bk < n;
+                         bk += blockSize) {
+
+                        int i_end =
+                            min(bi + blockSize, r.end());
+
+                        int j_end =
+                            min(bj + blockSize, n);
+
+                        int k_end =
+                            min(bk + blockSize, n);
+
+                        for (int i = bi;
+                             i < i_end;
+                             ++i) {
+
+                            int j = bj;
+
+                            for (; j + 3 < j_end; j += 4) {
+
+                                __m256d c =
+                                    _mm256_loadu_pd(
+                                        &result[i * n + j]);
+
+                                for (int k = bk;
+                                     k < k_end;
+                                     ++k) {
+
+                                    __m256d a =
+                                        _mm256_set1_pd(
+                                            m1[i * n + k]);
+
+                                    __m256d b =
+                                        _mm256_loadu_pd(
+                                            &m2_T[j * n + k]);
+
+                                    c =
+                                        _mm256_fmadd_pd(a, b, c);
+                                }
+
+                                _mm256_storeu_pd(
+                                    &result[i * n + j], c);
+                            }
+
+                            for (; j < j_end; ++j) {
+
+                                for (int k = bk;
+                                     k < k_end;
+                                     ++k) {
+
+                                    result[i * n + j] +=
+                                        m1[i * n + k] *
+                                        m2_T[j * n + k];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+        tbb::auto_partitioner()
+    );
+    return result;
+}
+
+// LinearMatrix dgemmOpt7(const LinearMatrix &m1, const LinearMatrix &m2, int n, int blockSize, int rank, int size) {
+//     // Оптимизация за счет распараллеливания вычислений при помощи MPI
+// }
+
+// LinearMatrix dgemmOpt8(const LinearMatrix &m1, const LinearMatrix &m2, int n, int blockSize) {
+//     // Оптимизация за счет распараллеливания вычислений при помощи CUDA
+// }
 
 void checkDgemmxPerformance(int maxValue, int step, const string &name) {
     try {
@@ -186,7 +485,7 @@ void checkDgemmxPerformance(int maxValue, int step, const string &name) {
             throw runtime_error("Failed to open file for writing: ./data/stats/" + name + ".dat");
         }
         
-        for (int matrixSize = 0; matrixSize <= maxValue; matrixSize += step) {
+        for (int matrixSize = step < maxValue ? step : 0; matrixSize <= maxValue; matrixSize += step) {
             double duration;
             if (name == "dgemmBlas" || name == "dgemmOpt1" || name == "dgemmOpt2") {
                 Matrix firstMatrix(matrixSize, vector<double>(matrixSize));
@@ -206,7 +505,7 @@ void checkDgemmxPerformance(int maxValue, int step, const string &name) {
                 }
                 clock_t end = clock();
                 duration = double(end - start) / CLOCKS_PER_SEC;
-            } else if (name == "dgemmOpt3") {
+            } else {
                 LinearMatrix firstLinearMatrix(matrixSize * matrixSize);
                 LinearMatrix secondLinearMatrix(matrixSize * matrixSize);
                 
@@ -214,10 +513,15 @@ void checkDgemmxPerformance(int maxValue, int step, const string &name) {
                 createLinearMatrix(secondLinearMatrix, matrixSize);
                 
                 LinearMatrix linearResult;
-                clock_t start = clock();
-                linearResult = dgemmOpt3(firstLinearMatrix, secondLinearMatrix, matrixSize, 32);
-                clock_t end = clock();
-                duration = double(end - start) / CLOCKS_PER_SEC;
+                auto start = chrono::high_resolution_clock::now();
+                if (name == "dgemmOpt3") linearResult = dgemmOpt3(firstLinearMatrix, secondLinearMatrix, matrixSize, 32);
+                else if (name == "dgemmOpt4") linearResult = dgemmOpt4(firstLinearMatrix, secondLinearMatrix, matrixSize, 32, 16);
+                else if (name == "dgemmOpt5") linearResult = dgemmOpt5(firstLinearMatrix, secondLinearMatrix, matrixSize, 32);
+                else if (name == "dgemmOpt6") linearResult = dgemmOpt6(firstLinearMatrix, secondLinearMatrix, matrixSize, 32);
+                // else if (name == "dgemmOpt7") linearResult = dgemmOpt7(firstLinearMatrix, secondLinearMatrix, matrixSize, 32);
+                // else if (name == "dgemmOpt8") linearResult = dgemmOpt8(firstLinearMatrix, secondLinearMatrix, matrixSize, 32);
+                auto end = chrono::high_resolution_clock::now();
+                duration = chrono::duration<double>(end - start).count();
             }
             dataFile << matrixSize << " " << duration << "\n";
         }
