@@ -46,12 +46,6 @@ int main(int argc, char* argv[]) {
                         case Algorithms::dgemmOpt6:
                             checkDgemmxPerformance(matrixSize, step, "dgemmOpt6");
                             break;
-                        // case Algorithms::dgemmOpt7:
-                        //     checkDgemmxPerformance(matrixSize, step, "dgemmOpt7");
-                        //     break;
-                        // case Algorithms::dgemmOpt8:
-                        //     checkDgemmxPerformance(matrixSize, step, "dgemmOpt8");
-                        //     break;
                     }
                     cout << ">>> Plot stored in: ./data/plots\n"
                             ">>> Performance data stored in: ./data/stats\n\n";
@@ -95,12 +89,6 @@ int main(int argc, char* argv[]) {
                         case Algorithms::dgemmOpt6:
                             linResult = dgemmOpt6(firstLinearMatrix, secondLinearMatrix, matrixSize, 32);
                             break;
-                        // case Algorithms::dgemmOpt7:
-                        //     linResult = dgemmOpt7(firstLinearMatrix, secondLinearMatrix, matrixSize, 32, rank, size);
-                        //     break;
-                        // case Algorithms::dgemmOpt8:
-                        //     linResult = dgemmOpt8(firstLinearMatrix, secondLinearMatrix, matrixSize, 32);
-                        //     break;
                     }
                     
                     if (algorithm == Algorithms::dgemmOpt3) {
@@ -147,28 +135,6 @@ int main(int argc, char* argv[]) {
                         displayLinearMatrix(linResult, matrixSize);
                         cout << "\n";
                         break;
-                    // } else if (algorithm == Algorithms::dgemmOpt7) {
-                    //     cout << "\n>>> First matrix:\n";
-                    //     displayLinearMatrix(firstLinearMatrix, matrixSize);
-
-                    //     cout << "\n>>> Second matrix:\n";
-                    //     displayLinearMatrix(secondLinearMatrix, matrixSize);
-
-                    //     cout << "\n>>>Result:\n";
-                    //     displayLinearMatrix(linResult, matrixSize);
-                    //     cout << "\n";
-                    //     break;
-                    // } else if (algorithm == Algorithms::dgemmOpt8) {
-                    //     cout << "\n>>> First matrix:\n";
-                    //     displayLinearMatrix(firstLinearMatrix, matrixSize);
-
-                    //     cout << "\n>>> Second matrix:\n";
-                    //     displayLinearMatrix(secondLinearMatrix, matrixSize);
-
-                    //     cout << "\n>>>Result:\n";
-                    //     displayLinearMatrix(linResult, matrixSize);
-                    //     cout << "\n";
-                    //     break;
                     } else {
                         cout << "\n>>> First matrix:\n";
                         displayMatrix(firstMatrix);

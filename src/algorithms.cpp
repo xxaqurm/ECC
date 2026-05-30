@@ -12,7 +12,6 @@
 #include <pthread.h>
 #include <omp.h>
 #include <tbb/tbb.h>
-#include <mpi.h>
 
 using namespace std;
 
@@ -467,14 +466,6 @@ LinearMatrix dgemmOpt6(const LinearMatrix &m1, const LinearMatrix &m2, int n, in
     return result;
 }
 
-// LinearMatrix dgemmOpt7(const LinearMatrix &m1, const LinearMatrix &m2, int n, int blockSize, int rank, int size) {
-//     // Оптимизация за счет распараллеливания вычислений при помощи MPI
-// }
-
-// LinearMatrix dgemmOpt8(const LinearMatrix &m1, const LinearMatrix &m2, int n, int blockSize) {
-//     // Оптимизация за счет распараллеливания вычислений при помощи CUDA
-// }
-
 void checkDgemmxPerformance(int maxValue, int step, const string &name) {
     try {
         filesystem::create_directories("./data/plots");
@@ -518,8 +509,6 @@ void checkDgemmxPerformance(int maxValue, int step, const string &name) {
                 else if (name == "dgemmOpt4") linearResult = dgemmOpt4(firstLinearMatrix, secondLinearMatrix, matrixSize, 32, 16);
                 else if (name == "dgemmOpt5") linearResult = dgemmOpt5(firstLinearMatrix, secondLinearMatrix, matrixSize, 32);
                 else if (name == "dgemmOpt6") linearResult = dgemmOpt6(firstLinearMatrix, secondLinearMatrix, matrixSize, 32);
-                // else if (name == "dgemmOpt7") linearResult = dgemmOpt7(firstLinearMatrix, secondLinearMatrix, matrixSize, 32);
-                // else if (name == "dgemmOpt8") linearResult = dgemmOpt8(firstLinearMatrix, secondLinearMatrix, matrixSize, 32);
                 auto end = chrono::high_resolution_clock::now();
                 duration = chrono::duration<double>(end - start).count();
             }

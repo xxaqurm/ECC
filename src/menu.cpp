@@ -34,8 +34,6 @@ int selectAlgorithm(void) {
         cout << "\t5. dgemmOpt4\n";
         cout << "\t6. dgemmOpt5\n";
         cout << "\t7. dgemmOpt6\n";
-        // cout << "\t8. dgemmOpt7\n";
-        // cout << "\t9. dgemmOpt8\n";
         cout << "Select Algorithm (enter number): ";
         cin >> algorithmNumber;
         

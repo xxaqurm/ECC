@@ -12,8 +12,6 @@ enum class Algorithms {
     dgemmOpt4,
     dgemmOpt5,
     dgemmOpt6,
-    // dgemmOpt7,
-    // dgemmOpt8
 };
 
 using Matrix = vector<vector<double>>;
@@ -27,8 +25,6 @@ LinearMatrix dgemmOpt3(const LinearMatrix &m1, const LinearMatrix &m2, int n, in
 LinearMatrix dgemmOpt4(const LinearMatrix &m1, const LinearMatrix &m2, int n, int blockSize, int numThreads);
 LinearMatrix dgemmOpt5(const LinearMatrix &m1, const LinearMatrix &m2, int n, int blockSize);
 LinearMatrix dgemmOpt6(const LinearMatrix &m1, const LinearMatrix &m2, int n, int blockSize);
-// LinearMatrix dgemmOpt7(const LinearMatrix &m1, const LinearMatrix &m2, int n, int blockSize);
-// LinearMatrix dgemmOpt8(const LinearMatrix &m1, const LinearMatrix &m2, int n, int blockSize);
 
 void createMatrix(Matrix &m, int mtxSize);
 void createLinearMatrix(LinearMatrix &m, int mtxSize);
